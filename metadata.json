@@ -1,0 +1,6 @@
+{
+  "name": "UAForge",
+  "description": "Production-grade User-Agent research, validation, analysis, and generation platform based on real-world datasets, cross-source verification, and confidence scoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
