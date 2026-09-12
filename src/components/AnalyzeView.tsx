@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   SearchCode,
   ShieldCheck,
@@ -13,6 +13,7 @@ import {
   Laptop,
   HelpCircle,
 } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
 import { AnalysisResult } from '../types';
 import { api } from '../services/api';
 
@@ -24,6 +25,14 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
   const [userAgentInput, setUserAgentInput] = useState<string>(
     initialUa || 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro Build/AP2A.240905.003) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36'
   );
+  
+  // Advanced context inputs
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [secChUa, setSecChUa] = useState('');
+  const [secChUaMobile, setSecChUaMobile] = useState('');
+  const [secChUaPlatform, setSecChUaPlatform] = useState('');
+  const [gpuRenderer, setGpuRenderer] = useState('');
+
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +47,17 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.analyze(text.trim());
+      const context = showAdvanced ? {
+        clientHints: {
+          secChUa: secChUa || undefined,
+          secChUaMobile: secChUaMobile || undefined,
+          secChUaPlatform: secChUaPlatform || undefined,
+        },
+        hardware: {
+          gpuRenderer: gpuRenderer || undefined,
+        }
+      } : undefined;
+      const data = await api.analyze(text.trim(), context);
       setResult(data);
     } catch (err: any) {
       setError(err?.message || 'Failed to analyze User-Agent');
@@ -47,9 +66,33 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
     }
   };
 
-  const handlePasteCurrentBrowser = () => {
-    if (typeof navigator !== 'undefined' && navigator.userAgent) {
+  const handlePasteCurrentBrowser = async () => {
+    if (typeof navigator !== 'undefined') {
       setUserAgentInput(navigator.userAgent);
+      
+      // Attempt to grab client hints if available
+      const navAny = navigator as any;
+      if (navAny.userAgentData) {
+        setShowAdvanced(true);
+        const brands = navAny.userAgentData.brands?.map((b: any) => `"${b.brand}";v="${b.version}"`).join(', ');
+        if (brands) setSecChUa(brands);
+        setSecChUaMobile(navAny.userAgentData.mobile ? '?1' : '?0');
+        setSecChUaPlatform(`"${navAny.userAgentData.platform}"`);
+      }
+
+      // Attempt to grab GPU
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl');
+        if (gl) {
+          const ext = gl.getExtension('WEBGL_debug_renderer_info');
+          if (ext) {
+            const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+            if (renderer) setGpuRenderer(renderer);
+          }
+        }
+      } catch (e) {}
+
       handleAnalyze(navigator.userAgent);
     }
   };
@@ -59,6 +102,43 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const sparklineData = useMemo(() => {
+    if (!result) return [];
+    
+    const target = result.confidence.score;
+    const data = [{ name: 'Initial Request', score: target > 50 ? 40 : 80 }];
+    let currentScore = data[0].score;
+    
+    const checksCount = result.compatibility.checksPassed.length;
+    const sourcesCount = result.sources.filter(s => s.matched).length;
+    const isSuspicious = target <= 39;
+    
+    const totalSteps = checksCount + sourcesCount + (isSuspicious ? result.compatibility.checksFailed.length : 0) + 1;
+    const diff = target - currentScore;
+    const step = diff / (totalSteps || 1);
+    
+    result.compatibility.checksPassed.forEach((check) => {
+        currentScore += step;
+        data.push({ name: `Pass: ${check.slice(0, 15)}...`, score: Math.round(currentScore) });
+    });
+    
+    if (isSuspicious) {
+      result.compatibility.checksFailed.forEach((check) => {
+          currentScore += step;
+          data.push({ name: `Fail: ${check.slice(0, 15)}...`, score: Math.round(currentScore) });
+      });
+    }
+    
+    result.sources.filter(s => s.matched).forEach((source) => {
+        currentScore += step;
+        data.push({ name: `Match: ${source.sourceName}`, score: Math.round(currentScore) });
+    });
+    
+    data.push({ name: 'Final Validation', score: target });
+    
+    return data;
+  }, [result]);
 
   return (
     <div className="space-y-6">
@@ -99,9 +179,14 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
         />
 
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-zinc-500">
-            Executes platform token parsing, compatibility matrix evaluation, and source dataset consensus checks.
-          </p>
+          <button 
+            type="button" 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-xs text-zinc-400 hover:text-white flex items-center space-x-1"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>{showAdvanced ? 'Hide Advanced Context' : 'Show Advanced Context (Client Hints / GPU)'}</span>
+          </button>
           <button
             id="analyze-submit-btn"
             onClick={() => handleAnalyze()}
@@ -112,6 +197,51 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
             <span>{loading ? 'Evaluating Tokens...' : 'Inspect & Analyze'}</span>
           </button>
         </div>
+
+        {showAdvanced && (
+          <div className="mt-4 pt-4 border-t border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 block mb-1">sec-ch-ua</label>
+              <input 
+                type="text" 
+                value={secChUa} 
+                onChange={(e) => setSecChUa(e.target.value)} 
+                placeholder='"Chromium";v="130", "Google Chrome";v="130"' 
+                className="w-full p-2 rounded bg-zinc-950 font-mono text-xs text-zinc-300 border border-zinc-800 focus:outline-none focus:border-zinc-600" 
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 block mb-1">sec-ch-ua-mobile</label>
+              <input 
+                type="text" 
+                value={secChUaMobile} 
+                onChange={(e) => setSecChUaMobile(e.target.value)} 
+                placeholder="?0 or ?1" 
+                className="w-full p-2 rounded bg-zinc-950 font-mono text-xs text-zinc-300 border border-zinc-800 focus:outline-none focus:border-zinc-600" 
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 block mb-1">sec-ch-ua-platform</label>
+              <input 
+                type="text" 
+                value={secChUaPlatform} 
+                onChange={(e) => setSecChUaPlatform(e.target.value)} 
+                placeholder='"Windows" or "Android"' 
+                className="w-full p-2 rounded bg-zinc-950 font-mono text-xs text-zinc-300 border border-zinc-800 focus:outline-none focus:border-zinc-600" 
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 block mb-1">WebGL Renderer (GPU)</label>
+              <input 
+                type="text" 
+                value={gpuRenderer} 
+                onChange={(e) => setGpuRenderer(e.target.value)} 
+                placeholder='e.g., ANGLE (Apple, Apple M1 Pro, OpenGL 4.1)' 
+                className="w-full p-2 rounded bg-zinc-950 font-mono text-xs text-zinc-300 border border-zinc-800 focus:outline-none focus:border-zinc-600" 
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error display */}
@@ -240,20 +370,27 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
                 {result.confidence.status}
               </div>
 
-              {/* Progress Bar */}
-              <div className="mt-3 w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    result.confidence.score >= 90
-                      ? 'bg-emerald-400'
-                      : result.confidence.score >= 75
-                      ? 'bg-emerald-500'
-                      : result.confidence.score >= 50
-                      ? 'bg-amber-500'
-                      : 'bg-red-500'
-                  }`}
-                  style={{ width: `${result.confidence.score}%` }}
-                />
+              {/* Sparkline Chart */}
+              <div className="mt-4 h-16 w-full opacity-80 hover:opacity-100 transition-opacity">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sparklineData}>
+                    <YAxis domain={[0, 100]} hide />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px', fontSize: '10px', color: '#a1a1aa' }}
+                      itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#e4e4e7', marginBottom: '2px', fontWeight: 'bold' }}
+                      cursor={{ stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="score" 
+                      stroke={result.confidence.score <= 39 ? '#ef4444' : result.confidence.score >= 90 ? '#34d399' : '#10b981'} 
+                      strokeWidth={2} 
+                      dot={false}
+                      activeDot={{ r: 4, fill: '#18181b', stroke: result.confidence.score <= 39 ? '#ef4444' : '#34d399', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
 
               <div className="mt-3 text-[11px] text-zinc-400">
@@ -331,6 +468,75 @@ export const AnalyzeView: React.FC<AnalyzeViewProps> = ({ initialUa = '' }) => {
                 </div>
               </div>
             </div>
+
+            {/* Hardware Integrity Module */}
+            {result.hardwareIntegrity && result.hardwareIntegrity.isEvaluated && (
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 md:col-span-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs uppercase font-medium tracking-wider text-zinc-400">Hardware Integrity</span>
+                    {result.hardwareIntegrity.isValid ? (
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold ml-2">VERIFIED</span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 font-bold ml-2">MISMATCH DETECTED</span>
+                    )}
+                  </div>
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                </div>
+                
+                <div className="mt-2 text-sm text-zinc-300">
+                  <p className="mb-3 text-xs text-zinc-400">
+                    Cross-referencing injected Advanced Context (Client-Hints / WebGL Renderer GPU) against strict platform whitelist definitions.
+                  </p>
+                  
+                  {/* Scorecard addition */}
+                  {result.hardwareIntegrity.clientHintConsistency && (
+                    <div className="mt-4 mb-4 p-3 bg-zinc-950/80 rounded border border-zinc-800">
+                      <h4 className="text-[11px] uppercase font-bold text-zinc-500 mb-2">Client-Hint Consistency Scorecard</h4>
+                      <div className="flex flex-col space-y-2">
+                        {result.hardwareIntegrity.clientHintConsistency.missingHighEntropyValues.length > 0 ? (
+                          <div className="flex items-start space-x-2">
+                            <span className="text-red-400 font-bold">✕</span>
+                            <span className="text-xs text-zinc-400">
+                              Missing Critical Entropy: <span className="text-red-300 font-mono">{result.hardwareIntegrity.clientHintConsistency.missingHighEntropyValues.join(', ')}</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start space-x-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span className="text-xs text-zinc-400">All required high-entropy hints present.</span>
+                          </div>
+                        )}
+                        
+                        {result.hardwareIntegrity.clientHintConsistency.isFlaggedAsFake ? (
+                          <div className="flex items-start space-x-2">
+                            <span className="text-red-400 font-bold">✕</span>
+                            <span className="text-xs text-red-300 font-mono">Profile Flagged: INCONSISTENT / FAKE. Hints contradict User-Agent structural claims.</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start space-x-2">
+                            <span className="text-emerald-400 font-bold">✓</span>
+                            <span className="text-xs text-zinc-400">Client-Hints perfectly align with User-Agent declarations.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {result.hardwareIntegrity.warnings.length > 0 ? (
+                    <ul className="space-y-2 mt-2 border-l-2 border-red-500/50 pl-3">
+                      {result.hardwareIntegrity.warnings.map((w, i) => (
+                        <li key={i} className="text-red-300 text-xs font-mono">⚠️ {w}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="flex items-center space-x-2 mt-2 border-l-2 border-emerald-500/50 pl-3">
+                      <span className="text-emerald-300 text-xs font-mono">✓ GPU Renderer & Client-Hints mathematically match exact User-Agent profile whitelist.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Detailed Token Breakdown Cards */}

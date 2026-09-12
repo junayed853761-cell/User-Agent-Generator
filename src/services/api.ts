@@ -59,6 +59,7 @@ export const api = {
     source?: string;
     quantity?: number;
     clientId?: string;
+    onlyLatestVersions?: boolean;
   }): Promise<GeneratedUserAgent[] & { meta?: { totalServedToYou?: number; zeroDuplicateActive?: boolean; count?: number } }> {
     const clientId = params.clientId || getClientId();
     const res = await fetch(`${API_BASE}/generate`, {
@@ -98,11 +99,11 @@ export const api = {
     return { resetCount: json.data.resetCount, message: json.message };
   },
 
-  async analyze(userAgent: string): Promise<AnalysisResult> {
+  async analyze(userAgent: string, context?: any): Promise<AnalysisResult> {
     const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userAgent }),
+      body: JSON.stringify({ userAgent, ...context }),
     });
     const json = await handleResponse<{ data: AnalysisResult }>(res);
     return json.data;

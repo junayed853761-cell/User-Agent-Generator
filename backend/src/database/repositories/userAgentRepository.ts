@@ -36,6 +36,7 @@ export interface UserAgentFilters {
   source?: string;
   searchQuery?: string;
   clientId?: string; // Unique client identifier for zero-duplicate enforcement
+  onlyLatestVersions?: boolean;
 }
 
 export interface PaginationOptions {
@@ -199,7 +200,9 @@ export class UserAgentRepository {
       ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
       ORDER BY 
         CASE WHEN confidence_score >= 90 THEN 0 ELSE 1 END,
+        CAST(SUBSTRING(operating_system_version FROM '^[0-9]+') AS INTEGER) DESC NULLS LAST,
         confidence_score DESC,
+        last_seen DESC,
         RANDOM()
       LIMIT $${params.length}
     `;
@@ -269,8 +272,13 @@ export class UserAgentRepository {
     }
 
     if (filters.browser && filters.browser.toLowerCase() !== 'all') {
-      params.push(`%${filters.browser}%`);
-      conditions.push(`browser ILIKE $${params.length}`);
+      const b = filters.browser.toLowerCase();
+      if (b === 'fban' || b === 'facebook') {
+        conditions.push(`(browser ILIKE '%Facebook%' OR user_agent ILIKE '%FBAN%' OR user_agent ILIKE '%FBAV%' OR user_agent ILIKE '%FB_IAB%')`);
+      } else {
+        params.push(`%${filters.browser}%`);
+        conditions.push(`browser ILIKE $${params.length}`);
+      }
     }
 
     if (filters.deviceType && filters.deviceType.toLowerCase() !== 'all') {
@@ -293,6 +301,17 @@ export class UserAgentRepository {
     if (filters.searchQuery && filters.searchQuery.trim()) {
       params.push(`%${filters.searchQuery.trim()}%`);
       conditions.push(`user_agent ILIKE $${params.length}`);
+    }
+
+    if (filters.onlyLatestVersions) {
+      conditions.push(`(
+        (operating_system ILIKE '%Android%' AND CAST(SUBSTRING(operating_system_version FROM '^[0-9]+') AS INTEGER) >= 12) OR
+        (operating_system ILIKE '%iOS%' AND CAST(SUBSTRING(operating_system_version FROM '^[0-9]+') AS INTEGER) >= 15) OR
+        (operating_system ILIKE '%Mac%' AND CAST(SUBSTRING(operating_system_version FROM '^[0-9]+') AS INTEGER) >= 10) OR
+        (operating_system ILIKE '%Windows%' AND (operating_system_version ILIKE '%10%' OR operating_system_version ILIKE '%11%')) OR
+        (operating_system NOT ILIKE '%Android%' AND operating_system NOT ILIKE '%iOS%' AND operating_system NOT ILIKE '%Mac%' AND operating_system NOT ILIKE '%Windows%') OR
+        operating_system_version IS NULL
+      )`);
     }
 
     if (filters.source && filters.source.toLowerCase() !== 'all') {

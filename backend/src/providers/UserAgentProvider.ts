@@ -14,7 +14,7 @@ export interface ProviderHealth {
 export interface ProviderMetadata {
   id: string;
   name: string;
-  providerType: 'microlink' | 'intoli' | 'whatismybrowser' | 'local';
+  providerType: 'microlink' | 'intoli' | 'whatismybrowser' | 'local' | 'opensource-github';
   description: string;
   baseUrl: string;
   requiresApiKey: boolean;

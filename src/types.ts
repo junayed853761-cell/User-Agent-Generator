@@ -74,6 +74,11 @@ export interface GeneratedUserAgent {
   };
   sourcesCount: number;
   sources: string[];
+  clientHints?: {
+    secChUa: string;
+    secChUaMobile: string;
+    secChUaPlatform: string;
+  };
 }
 
 export interface SourceMatchInfo {
@@ -104,6 +109,17 @@ export interface AnalysisResult {
     isDesktop: boolean;
   };
   sources: SourceMatchInfo[];
+  hardwareIntegrity?: {
+    isValid: boolean;
+    isEvaluated: boolean;
+    warnings: string[];
+    details?: string;
+    clientHintConsistency?: {
+      isValid: boolean;
+      missingHighEntropyValues: string[];
+      isFlaggedAsFake: boolean;
+    };
+  };
   confidence: {
     score: number;
     status: string;

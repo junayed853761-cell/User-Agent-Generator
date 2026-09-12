@@ -289,4 +289,40 @@ export const REAL_WORLD_DATASET: DatasetItem[] = [
     countryCode: 'US',
     countryName: 'United States',
   },
+  // FACEBOOK IN-APP BROWSERS
+  {
+    ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/122.0.6261.119 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/456.0.0.39.90;]',
+    weight: 100,
+    platform: 'Android',
+    browser: 'Facebook',
+    deviceType: 'mobile',
+  },
+  {
+    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E236 [FBAN/FBIOS;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/17.4.1;FBSS/3;FBID/phone;FBLC/en_US;FBOP/5]',
+    weight: 95,
+    platform: 'iOS',
+    browser: 'Facebook',
+    deviceType: 'mobile',
+  },
+  {
+    ua: 'Mozilla/5.0 (Linux; Android 13; SM-A546B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.210 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/448.0.0.33.108;]',
+    weight: 85,
+    platform: 'Android',
+    browser: 'Facebook',
+    deviceType: 'mobile',
+  },
+  {
+    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/20G75 [FBAN/FBIOS;FBDV/iPhone13,2;FBMD/iPhone;FBSN/iOS;FBSV/16.6;FBSS/3;FBID/phone;FBLC/en_GB;FBOP/5]',
+    weight: 80,
+    platform: 'iOS',
+    browser: 'Facebook',
+    deviceType: 'mobile',
+  },
+  {
+    ua: 'Mozilla/5.0 (Linux; Android 12; CPH2213 Build/SP1A.210812.017; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.5993.111 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/439.0.0.43.117;]',
+    weight: 75,
+    platform: 'Android',
+    browser: 'Facebook',
+    deviceType: 'mobile',
+  },
 ];

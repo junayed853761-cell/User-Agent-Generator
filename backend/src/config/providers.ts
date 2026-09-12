@@ -1,7 +1,7 @@
 export interface ProviderConfig {
   id: string;
   name: string;
-  providerType: 'microlink' | 'intoli' | 'whatismybrowser' | 'local';
+  providerType: 'microlink' | 'intoli' | 'whatismybrowser' | 'local' | 'opensource-github';
   baseUrl: string;
   enabled: boolean;
   requiresApiKey: boolean;
@@ -41,6 +41,15 @@ export const providerConfigs: Record<string, ProviderConfig> = {
     name: 'UAForge Real-World Dataset',
     providerType: 'local',
     baseUrl: 'local://datasets/real-uas.json',
+    enabled: true,
+    requiresApiKey: false,
+    syncIntervalHours: 24,
+  },
+  latestopensource: {
+    id: 'latestopensource',
+    name: 'Latest Open Source UAs',
+    providerType: 'opensource-github',
+    baseUrl: 'https://raw.githubusercontent.com/skratchdot/random-useragent/master/useragent.json',
     enabled: true,
     requiresApiKey: false,
     syncIntervalHours: 24,

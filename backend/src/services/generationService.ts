@@ -2,6 +2,7 @@ import { UserAgentRepository, UserAgentRecord, UserAgentFilters } from '../datab
 import { HistoryRepository } from '../database/repositories/historyRepository.js';
 import { getConfidenceStatus, sortRecordsByPriorityConfidence } from '../config/confidenceRules.js';
 import { detectCountry, getCountryByCode } from '../utils/countryDetector.js';
+import { generateClientHints, ClientHints } from '../utils/clientHintsGenerator.js';
 
 export interface GenerationRequest {
   platform?: string;
@@ -13,6 +14,7 @@ export interface GenerationRequest {
   quantity?: number;
   userId?: number | null;
   clientId?: string;
+  onlyLatestVersions?: boolean;
 }
 
 export interface GeneratedUserAgentItem {
@@ -36,6 +38,7 @@ export interface GeneratedUserAgentItem {
   };
   sourcesCount: number;
   sources: string[];
+  clientHints: ClientHints;
 }
 
 export class GenerationService {
@@ -68,6 +71,7 @@ export class GenerationService {
       minimumConfidence: minConfidence,
       source: req.source,
       clientId,
+      onlyLatestVersions: true, // EXCLUSIVELY enforce latest versions always
     };
 
     const records = await this.uaRepo.getRandomValidatedRecords(filters, quantity);
@@ -77,6 +81,9 @@ export class GenerationService {
       const countryInfo = r.country_code
         ? getCountryByCode(r.country_code)
         : detectCountry(r.user_agent);
+
+      const isMobileFlag = Boolean(r.is_mobile) || r.device_type === 'mobile';
+      const cHints = generateClientHints(r.browser || 'Unknown', r.browser_version || '', r.operating_system || 'Unknown', isMobileFlag, r.user_agent);
 
       return {
         id: r.id,
@@ -95,6 +102,7 @@ export class GenerationService {
         },
         sourcesCount: sources.length,
         sources,
+        clientHints: cHints,
       };
     });
 

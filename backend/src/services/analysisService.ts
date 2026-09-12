@@ -41,6 +41,16 @@ export interface AnalysisResult {
     flag: string;
   };
   sources: SourceMatchInfo[];
+  hardwareIntegrity?: {
+    isValid: boolean;
+    isEvaluated: boolean;
+    warnings: string[];
+    clientHintConsistency?: {
+      isValid: boolean;
+      missingHighEntropyValues: string[];
+      isFlaggedAsFake: boolean;
+    };
+  };
   confidence: ConfidenceResult;
   compatibility: {
     status: string;
@@ -74,7 +84,13 @@ export class AnalysisService {
     this.confidenceService = new ConfidenceService();
   }
 
-  async analyze(userAgentString: string): Promise<AnalysisResult> {
+  async analyze(
+    userAgentString: string, 
+    context?: {
+      clientHints?: { secChUa?: string; secChUaMobile?: string; secChUaPlatform?: string };
+      hardware?: { gpuRenderer?: string };
+    }
+  ): Promise<AnalysisResult> {
     if (!userAgentString || typeof userAgentString !== 'string') {
       throw new Error('User-Agent string is required for analysis');
     }
@@ -83,7 +99,7 @@ export class AnalysisService {
     const parsed = parseUserAgent(userAgentString);
 
     // 2. Compatibility checks
-    const compatibility = this.validationService.validateCompatibility(parsed);
+    const compatibility = this.validationService.validateCompatibility(parsed, context);
 
     // 3. Search local database & source cross-referencing
     const existing = await this.uaRepo.findByUserAgent(parsed.raw);
@@ -181,6 +197,27 @@ export class AnalysisService {
       confidence.reasons.unshift('Verified authentic by WhatIsMyBrowser live commercial detection API');
     }
 
+    const hwEvaluated = Boolean(context?.hardware?.gpuRenderer || context?.clientHints?.secChUaPlatform);
+    const hwIsValid = hwEvaluated ? !compatibility.checksFailed.some(f => f.includes('Hardware mismatch') || f.includes('Client-Hint mismatch')) : true;
+    const hwWarnings = compatibility.warnings.filter(w => w.includes('Hardware') || w.includes('Client-Hint') || w.includes('GPU'));
+
+    // Client-Hint Consistency Evaluation
+    let clientHintConsistency = undefined;
+    if (context?.clientHints) {
+      const ch = context.clientHints;
+      const missing = [];
+      if (!ch.secChUaPlatform) missing.push('sec-ch-ua-platform');
+      if (ch.secChUaMobile === undefined || ch.secChUaMobile === null) missing.push('sec-ch-ua-mobile');
+      
+      const isFlaggedAsFake = compatibility.checksFailed.some(f => f.includes('Client-Hint mismatch') || f.includes('Invalid Client-Hint'));
+
+      clientHintConsistency = {
+        isValid: missing.length === 0 && !isFlaggedAsFake,
+        missingHighEntropyValues: missing,
+        isFlaggedAsFake: isFlaggedAsFake
+      };
+    }
+
     return {
       userAgent: parsed.raw,
       parsed,
@@ -203,6 +240,12 @@ export class AnalysisService {
       },
       country: parsed.country,
       sources: sourcesResult,
+      hardwareIntegrity: {
+        isEvaluated: hwEvaluated,
+        isValid: hwIsValid,
+        warnings: hwWarnings,
+        clientHintConsistency: clientHintConsistency,
+      },
       confidence,
       compatibility: {
         status: compatibility.status,

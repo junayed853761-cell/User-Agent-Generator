@@ -7,12 +7,23 @@ const analysisService = new AnalysisService();
 
 const analyzeSchema = z.object({
   userAgent: z.string().min(1, 'User-Agent string cannot be empty').max(2500),
+  clientHints: z.object({
+    secChUa: z.string().optional(),
+    secChUaMobile: z.string().optional(),
+    secChUaPlatform: z.string().optional(),
+  }).optional(),
+  hardware: z.object({
+    gpuRenderer: z.string().optional(),
+  }).optional(),
 });
 
 analyzeRouter.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userAgent } = analyzeSchema.parse(req.body);
-    const result = await analysisService.analyze(userAgent);
+    const validated = analyzeSchema.parse(req.body);
+    const result = await analysisService.analyze(validated.userAgent, {
+      clientHints: validated.clientHints,
+      hardware: validated.hardware,
+    });
 
     res.json({
       data: result,

@@ -56,6 +56,7 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
   const [source, setSource] = useState<string>('all');
   const [minConfidence, setMinConfidence] = useState<number>(80); // Default 80+ as requested
   const [quantity, setQuantity] = useState<number>(5);
+  const [onlyLatestVersions, setOnlyLatestVersions] = useState<boolean>(true);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [dbSyncing, setDbSyncing] = useState<boolean>(false);
@@ -97,6 +98,7 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
         source: source === 'all' ? undefined : source,
         minimumConfidence: minConfidence,
         quantity,
+        onlyLatestVersions,
       });
       setResults(items);
       if (items.meta?.totalServedToYou !== undefined) {
@@ -402,9 +404,81 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
               <option value="Edge">Microsoft Edge</option>
               <option value="Samsung">Samsung Internet</option>
               <option value="Opera">Opera</option>
+              <option value="FBAN">Facebook App (Mobile)</option>
             </select>
           </div>
         </div>
+
+        {/* Quick Setup Pill Buttons */}
+        <div className="mt-6 pt-5 border-t border-zinc-800">
+          <label className="block text-xs font-medium text-zinc-400 mb-3 text-center sm:text-left">Quick Presets</label>
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+            <button
+              onClick={() => { setPlatform('Android'); setDeviceType('mobile'); }}
+              className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition ${platform === 'Android' ? 'bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              ANDROID
+            </button>
+            <button
+              onClick={() => { setPlatform('iOS'); setDeviceType('mobile'); }}
+              className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition ${platform === 'iOS' ? 'bg-emerald-400 text-zinc-900 shadow-[0_0_15px_rgba(52,211,153,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              IPHONE
+            </button>
+            <button
+              onClick={() => { setPlatform('Windows'); setDeviceType('desktop'); }}
+              className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition ${platform === 'Windows' ? 'bg-blue-400 text-zinc-900 shadow-[0_0_15px_rgba(96,165,250,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              WINDOWS
+            </button>
+            <button
+              onClick={() => { setPlatform('macOS'); setDeviceType('desktop'); }}
+              className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition ${platform === 'macOS' ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              MACBOOK
+            </button>
+          </div>
+          
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4">
+            <button
+              onClick={() => { setBrowser('FBAN'); setDeviceType('mobile'); }}
+              className={`px-6 py-2.5 rounded-full text-xs font-bold tracking-wide transition ${browser === 'FBAN' ? 'bg-teal-400 text-zinc-900 shadow-[0_0_15px_rgba(45,212,191,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              Facebook
+            </button>
+            <button
+              onClick={() => setBrowser('Chrome')}
+              className={`px-6 py-2.5 rounded-full text-xs font-bold tracking-wide transition ${browser === 'Chrome' ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              Chrome
+            </button>
+            <button
+              onClick={() => setBrowser('Safari')}
+              className={`px-6 py-2.5 rounded-full text-xs font-bold tracking-wide transition ${browser === 'Safari' ? 'bg-fuchsia-400 text-zinc-900 shadow-[0_0_15px_rgba(232,121,249,0.5)] border-transparent' : 'bg-zinc-900 text-zinc-400 border border-zinc-700 hover:bg-zinc-800'}`}
+            >
+              Safari
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Facebook App Module */}
+        {browser === 'FBAN' && (
+          <div className="mt-6 p-4 rounded-xl bg-teal-950/30 border border-teal-500/30">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 bg-teal-500/20 rounded-lg text-teal-400">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-teal-300">Facebook App & Crawler Optimization</h4>
+                <p className="text-xs text-zinc-300 mt-1">
+                  You have selected the Facebook App generator. The engine will actively search for FBAN, FBAV, and FB_IAB identifiers.
+                  <br className="mb-1" />
+                  <strong>Client Hints:</strong> The payload generator will automatically extract the underlying Chromium/WebKit engine versions and spoof the correct Android WebView or iOS Safari Client-Hints to pass deep inspection.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Confidence Presets & Sliders */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-5 border-t border-zinc-800">
@@ -712,6 +786,39 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Simulated Client Hints */}
+                {item.clientHints && (
+                  <div className="mt-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Generated Client Hints</span>
+                      <button
+                        onClick={() => {
+                          const hintsText = `sec-ch-ua: ${item.clientHints?.secChUa}\nsec-ch-ua-mobile: ${item.clientHints?.secChUaMobile}\nsec-ch-ua-platform: ${item.clientHints?.secChUaPlatform}`;
+                          copyToClipboard(hintsText, item.id + 100000);
+                        }}
+                        className="text-[10px] text-zinc-400 hover:text-zinc-200 flex items-center space-x-1"
+                      >
+                        {copiedId === item.id + 100000 ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>Copy Hints</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+                      <div>
+                        <span className="text-zinc-500 block mb-0.5">sec-ch-ua</span>
+                        <span className="text-emerald-300/80">{item.clientHints.secChUa}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-0.5">sec-ch-ua-mobile</span>
+                        <span className="text-emerald-300/80">{item.clientHints.secChUaMobile}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-0.5">sec-ch-ua-platform</span>
+                        <span className="text-emerald-300/80">{item.clientHints.secChUaPlatform}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

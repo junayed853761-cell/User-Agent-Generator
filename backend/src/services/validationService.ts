@@ -11,8 +11,8 @@ export class ValidationService {
     this.sourceValidator = new SourceValidator();
   }
 
-  validateCompatibility(parsed: ParsedUserAgent): CompatibilityCheckResult {
-    return this.compatibilityValidator.validate(parsed);
+  validateCompatibility(parsed: ParsedUserAgent, context?: any): CompatibilityCheckResult {
+    return this.compatibilityValidator.validate(parsed, context);
   }
 
   validateRawSource(raw: any): SourceValidationResult {

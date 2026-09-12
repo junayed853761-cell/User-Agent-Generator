@@ -11,7 +11,6 @@ import { rateLimiter } from './backend/src/middleware/rateLimit.js';
 import { errorHandler } from './backend/src/middleware/errorHandler.js';
 import { optionalAuth } from './backend/src/middleware/auth.js';
 
-import { authRouter } from './backend/src/api/routes/auth.js';
 import { healthRouter } from './backend/src/api/routes/health.js';
 import { statsRouter } from './backend/src/api/routes/stats.js';
 import { userAgentsRouter } from './backend/src/api/routes/userAgents.js';
@@ -24,7 +23,7 @@ import { defaultSourceSyncJob } from './backend/src/jobs/sourceSyncJob.js';
 
 async function startServer() {
   const app = express();
-  const PORT = config.port;
+  const PORT = 3000;
 
   // Initialize Database
   try {
@@ -72,7 +71,6 @@ async function startServer() {
 
   // Versioned API v1 routes
   const apiV1Router = express.Router();
-  apiV1Router.use('/auth', authRouter);
   apiV1Router.use('/health', healthRouter);
   apiV1Router.use('/stats', statsRouter);
   apiV1Router.use('/user-agents', userAgentsRouter);
